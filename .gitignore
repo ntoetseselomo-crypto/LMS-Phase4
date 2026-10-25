@@ -1,0 +1,7 @@
+build/
+*.exe
+*.o
+*.dll
+*.a
+.lms.db
+lms.db
