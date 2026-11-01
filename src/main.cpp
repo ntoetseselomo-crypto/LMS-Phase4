@@ -5,8 +5,41 @@
 #include <cstdlib>
 #include <limits>
 #include <stdexcept>
+#include <regex>
+#include <ctime>
+namespace {bool validDateTime(const std::string& value) {
+    if (!std::regex_match(value,
+        std::regex(R"(^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$)"))) {
+        return false;
+    }
 
-namespace {
+    int year = std::stoi(value.substr(0, 4));
+    int month = std::stoi(value.substr(5, 2));
+    int day = std::stoi(value.substr(8, 2));
+    int hour = std::stoi(value.substr(11, 2));
+    int minute = std::stoi(value.substr(14, 2));
+    int second = std::stoi(value.substr(17, 2));
+
+    if (month < 1 || month > 12 || hour > 23 ||
+        minute > 59 || second > 59) {
+        return false;
+    }
+
+    const int daysInMonth[] = {
+        31, 28, 31, 30, 31, 30,
+        31, 31, 30, 31, 30, 31
+    };
+
+    bool leapYear = (year % 400 == 0) ||
+                    (year % 4 == 0 && year % 100 != 0);
+
+    int maxDay = daysInMonth[month - 1];
+    if (month == 2 && leapYear) {
+        maxDay = 29;
+    }
+
+    return day >= 1 && day <= maxDay;
+}
 std::string defaultDbPath() {
     if (const char* p = std::getenv("LMS_DB"); p && *p) return p;
     if (const char* h = std::getenv("HOME");   h && *h) return std::string(h) + "/.lms.db";
@@ -17,8 +50,27 @@ std::string ask(const std::string& label) {
     std::string v; std::getline(std::cin,v); return v;
 }
 int askInt(const std::string& label) {
-    std::string s=ask(label); std::size_t used=0;
-    int v=std::stoi(s,&used); if(used!=s.size()) throw std::invalid_argument("Enter a whole number"); return v;
+    while (true) {
+        std::string s = ask(label);
+        std::size_t used = 0;
+
+        try {
+            int v = std::stoi(s, &used);
+
+            if (used != s.size()) {
+                std::cout << "Invalid input. Please enter a whole number.\n";
+                continue;
+            }
+
+            return v;
+        }
+        catch (const std::invalid_argument&) {
+            std::cout << "Invalid input. Please enter a whole number.\n";
+        }
+        catch (const std::out_of_range&) {
+            std::cout << "Number is too large. Please enter a smaller number.\n";
+        }
+    }
 }
 double askDouble(const std::string& label) {
     std::string s=ask(label); std::size_t used=0;
@@ -82,8 +134,19 @@ void menu(User& u, LMSRepository& repo) {
           std::cout<<"Approved mark released.\n";
         } else if(c==9) {
           if(u.role()!=Role::HoD && u.role()!=Role::Administrator) throw std::runtime_error("Permission denied");
-          repo.grantExtension(askInt("Assignment ID: "),askInt("Student user ID: "),
-             ask("New deadline (YYYY-MM-DD HH:MM:SS): "),u.id());
+          int assignmentId = askInt("Assignment ID: ");
+int studentId = askInt("Student user ID: ");
+std::string deadline;
+
+do {
+    deadline = ask("New deadline (YYYY-MM-DD HH:MM:SS): ");
+
+    if (!validDateTime(deadline)) {
+        std::cout << "Invalid date or time. Use YYYY-MM-DD HH:MM:SS.\n";
+    }
+} while (!validDateTime(deadline));
+
+repo.grantExtension(assignmentId, studentId, deadline, u.id());
           std::cout<<"Extension saved.\n";
         } else if(c==10) {
           if(u.role()!=Role::Student) throw std::runtime_error("Only students may view their marks");
@@ -96,7 +159,7 @@ void menu(User& u, LMSRepository& repo) {
 int main() {
  try {
    Database db(defaultDbPath()); LMSRepository repo(db); repo.initialiseSchema(); UserRepository users(db); AuthService auth(users);
-   std::cout<<"LMS Phase 4 prototype (C++17 + SQLite)\n";
+ std::cout<<"LMS Phase 4 prototype (C++17 + SQLite)\n";
    bool running=true;
    while(running) {
      std::cout<<"\n1 Register user  2 Login  0 Exit\n";
