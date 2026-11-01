@@ -1,0 +1,29 @@
+name: LMS Phase 5 CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ sqlite3 libsqlite3-dev libsodium-dev pkg-config
+
+      - name: Configure CMake
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build LMS and tests
+        run: cmake --build build
+
+      - name: Run automated tests
+        run: ctest --test-dir build --output-on-failure
