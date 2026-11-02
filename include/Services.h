@@ -26,8 +26,9 @@ class SubmissionService {
 public:
     SubmissionService(LMSRepository& repo, const IPenaltyStrategy& strategy)
       : repo_(repo), strategy_(strategy) {}
-    std::string classify(const std::string& submittedAt, const std::string& deadline,
-                         const std::string& effectiveDeadline) const;
+   static std::string classify(const std::string& submittedAt,
+                            const std::string& deadline,
+                            const std::string& effectiveDeadline);
     double calculateFinalMark(double rawMark, double maxMark, int daysLate) const;
 private: LMSRepository& repo_; const IPenaltyStrategy& strategy_;
 };
