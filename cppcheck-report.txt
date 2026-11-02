@@ -1,0 +1,7 @@
+src\Services.cpp:87:32: style: The function 'classify' is never used. [unusedFunction]
+std::string SubmissionService::classify(
+                               ^
+src\Services.cpp:104:27: style: The function 'calculateFinalMark' is never used. [unusedFunction]
+double SubmissionService::calculateFinalMark(
+                          ^
+nofile:0:0: information: Active checkers: 183/186 (use --checkers-report=<filename> to see details) [checkersReport]
