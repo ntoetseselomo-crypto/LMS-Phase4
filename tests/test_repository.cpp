@@ -515,8 +515,7 @@ TEST_CASE("LMS repository integration tests", "[integration]") {
         REQUIRE(assignments[0].deadline == "2026-11-01 23:59:00");
         REQUIRE(assignments[0].effectiveDeadline == "2026-11-05 23:59:00");
     }
-
-    SECTION("A lecturer cannot extend another lecturer's assignment") {
+SECTION("A HoD cannot grant a class-wide extension") {
         LMSFixture test;
 
         REQUIRE_THROWS(
