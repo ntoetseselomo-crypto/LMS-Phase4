@@ -132,7 +132,7 @@ void menu(const User& u, LMSRepository& repo) {
             << "6 Mark submission (Lecturer)\n"
             << "7 Moderate mark (HoD)\n"
             << "8 Release approved mark (HoD)\n"
-            << "9 Grant extension (HoD/Admin)\n"
+            << "9 Manage extensions (Lecturer: class-wide; HoD/Admin: individual)\n"
             << "10 View my released marks (Student)\n"
             << "0 Logout\n";
 
@@ -143,12 +143,22 @@ void menu(const User& u, LMSRepository& repo) {
                 done = true;
             }
             else if (c == 1) {
-                auto a = repo.assignments();
+                auto a = (u.role() == Role::Student)
+                    ? repo.assignmentsForStudent(u.id())
+                    : repo.assignments();
 
                 for (const auto& x : a) {
                     std::cout << x.id << " | " << x.title
-                              << " | deadline " << x.deadline
-                              << " | max " << x.maxMark << "\n";
+                              << " | deadline " << x.deadline;
+
+                    if (u.role() == Role::Student &&
+                        !x.effectiveDeadline.empty() &&
+                        x.effectiveDeadline > x.deadline) {
+                        std::cout << " | extended deadline "
+                                  << x.effectiveDeadline;
+                    }
+
+                    std::cout << " | max " << x.maxMark << "\n";
                 }
             }
             else if (c == 2) {
@@ -250,28 +260,47 @@ void menu(const User& u, LMSRepository& repo) {
                 std::cout << "Approved mark released.\n";
             }
             else if (c == 9) {
-                if (u.role() != Role::HoD &&
-                    u.role() != Role::Administrator) {
+                if (u.role() == Role::Lecturer) {
+                    int assignmentId = askInt("Assignment ID: ");
+                    std::string deadline;
+
+                    do {
+                        deadline = ask("New class deadline (YYYY-MM-DD HH:MM:SS): ");
+
+                        if (!validDateTime(deadline)) {
+                            std::cout << "Invalid date or time. "
+                                      << "Use YYYY-MM-DD HH:MM:SS.\n";
+                        }
+                    } while (!validDateTime(deadline));
+
+                    repo.grantClassExtension(
+                        assignmentId, deadline, u.id());
+
+                    std::cout << "Class-wide extension saved.\n";
+                }
+                else if (u.role() == Role::HoD ||
+                         u.role() == Role::Administrator) {
+                    int assignmentId = askInt("Assignment ID: ");
+                    int studentId = askInt("Student user ID: ");
+                    std::string deadline;
+
+                    do {
+                        deadline = ask("New individual deadline (YYYY-MM-DD HH:MM:SS): ");
+
+                        if (!validDateTime(deadline)) {
+                            std::cout << "Invalid date or time. "
+                                      << "Use YYYY-MM-DD HH:MM:SS.\n";
+                        }
+                    } while (!validDateTime(deadline));
+
+                    repo.grantExtension(
+                        assignmentId, studentId, deadline, u.id());
+
+                    std::cout << "Individual extension saved.\n";
+                }
+                else {
                     throw std::runtime_error("Permission denied");
                 }
-
-                int assignmentId = askInt("Assignment ID: ");
-                int studentId = askInt("Student user ID: ");
-                std::string deadline;
-
-                do {
-                    deadline = ask("New deadline (YYYY-MM-DD HH:MM:SS): ");
-
-                    if (!validDateTime(deadline)) {
-                        std::cout << "Invalid date or time. "
-                                  << "Use YYYY-MM-DD HH:MM:SS.\n";
-                    }
-                } while (!validDateTime(deadline));
-
-                repo.grantExtension(
-                    assignmentId, studentId, deadline, u.id());
-
-                std::cout << "Extension saved.\n";
             }
             else if (c == 10) {
                 if (u.role() != Role::Student)
