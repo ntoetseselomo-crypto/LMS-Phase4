@@ -11,6 +11,7 @@ struct Assignment {
     std::string title;
     std::string deadline; // ISO 8601: YYYY-MM-DD HH:MM:SS
     double maxMark{};
+    std::string effectiveDeadline;
 };
 
 struct Submission {
@@ -60,6 +61,7 @@ public:
                          const std::string& deadline, double maxMark, int creatorId);
 
     std::vector<Assignment> assignments();
+    std::vector<Assignment> assignmentsForStudent(int studentId);
 
     void submit(int assignmentId, int studentId, const std::string& filePath,
                 const std::string& submittedAt, const std::string& status);
@@ -73,6 +75,7 @@ public:
     void release(int markId, int hodId, const std::string& reason);
 
     void grantExtension(int assignmentId, int studentId, const std::string& newDeadline, int grantedBy);
+    void grantClassExtension(int assignmentId, const std::string& newDeadline, int grantedBy);
 
     std::vector<MarkRecord> marksForStudent(int studentId);
 

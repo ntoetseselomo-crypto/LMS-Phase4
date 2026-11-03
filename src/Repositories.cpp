@@ -69,6 +69,11 @@ void LMSRepository::initialiseSchema() {
    extension_id INTEGER PRIMARY KEY, assignment_id INTEGER NOT NULL REFERENCES Assignment(assignment_id),
    student_id INTEGER NOT NULL REFERENCES Users(user_id), new_deadline TEXT NOT NULL,
    granted_by INTEGER NOT NULL REFERENCES Users(user_id), UNIQUE(assignment_id,student_id));
+ CREATE TABLE IF NOT EXISTS ClassExtension(
+   class_extension_id INTEGER PRIMARY KEY,
+   assignment_id INTEGER NOT NULL UNIQUE REFERENCES Assignment(assignment_id),
+   new_deadline TEXT NOT NULL,
+   granted_by INTEGER NOT NULL REFERENCES Users(user_id));
  CREATE TABLE IF NOT EXISTS Submission(
    submission_id INTEGER PRIMARY KEY, assignment_id INTEGER NOT NULL REFERENCES Assignment(assignment_id),
    student_id INTEGER NOT NULL REFERENCES Users(user_id), submitted_at TEXT NOT NULL,
@@ -108,6 +113,38 @@ std::vector<Assignment> LMSRepository::assignments() {
   out.push_back({sqlite3_column_int(s.get(),0),reinterpret_cast<const char*>(sqlite3_column_text(s.get(),1)),
    reinterpret_cast<const char*>(sqlite3_column_text(s.get(),2)),sqlite3_column_double(s.get(),3)});
  if(rc!=SQLITE_DONE) throw std::runtime_error(sqlite3_errmsg(db_.handle()));
+ return out;
+}
+
+std::vector<Assignment> LMSRepository::assignmentsForStudent(int studentId) {
+ Statement s(db_.handle(),
+  "SELECT a.assignment_id, a.title, a.deadline, a.max_mark, "
+  "MAX(a.deadline, "
+  "COALESCE(ce.new_deadline, a.deadline), "
+  "COALESCE(e.new_deadline, a.deadline)) "
+  "FROM Assignment a "
+  "LEFT JOIN ClassExtension ce ON ce.assignment_id = a.assignment_id "
+  "LEFT JOIN Extension e ON e.assignment_id = a.assignment_id AND e.student_id = ? "
+  "ORDER BY a.assignment_id;");
+
+ sqlite3_bind_int(s.get(), 1, studentId);
+
+ std::vector<Assignment> out;
+ int rc;
+
+ while ((rc = sqlite3_step(s.get())) == SQLITE_ROW) {
+  out.push_back({
+   sqlite3_column_int(s.get(), 0),
+   reinterpret_cast<const char*>(sqlite3_column_text(s.get(), 1)),
+   reinterpret_cast<const char*>(sqlite3_column_text(s.get(), 2)),
+   sqlite3_column_double(s.get(), 3),
+   reinterpret_cast<const char*>(sqlite3_column_text(s.get(), 4))
+  });
+ }
+
+ if (rc != SQLITE_DONE)
+  throw std::runtime_error(sqlite3_errmsg(db_.handle()));
+
  return out;
 }
 
@@ -231,6 +268,34 @@ void LMSRepository::grantExtension(int assignmentId,int studentId,const std::str
  sqlite3_bind_int(s.get(),2,studentId);
  text(s.get(),3,newDeadline);
  sqlite3_bind_int(s.get(),4,grantedBy);
+ s.done();
+}
+
+void LMSRepository::grantClassExtension(int assignmentId,
+                                        const std::string& newDeadline,
+                                        int grantedBy) {
+ // Confirm that the lecturer is assigned to the course containing this assignment.
+ Statement check(db_.handle(),
+  "SELECT 1 FROM Assignment a "
+  "JOIN Course c ON c.course_id = a.course_id "
+  "JOIN Users u ON u.user_id = c.lecturer_id "
+  "WHERE a.assignment_id = ? AND c.lecturer_id = ? AND u.role = 'Lecturer';");
+
+ sqlite3_bind_int(check.get(), 1, assignmentId);
+ sqlite3_bind_int(check.get(), 2, grantedBy);
+
+ if (sqlite3_step(check.get()) != SQLITE_ROW)
+  throw std::runtime_error("Permission denied: lecturer does not teach this assignment's course.");
+
+ Statement s(db_.handle(),
+  "INSERT INTO ClassExtension(assignment_id,new_deadline,granted_by) "
+  "VALUES(?,?,?) "
+  "ON CONFLICT(assignment_id) DO UPDATE SET "
+  "new_deadline=excluded.new_deadline, granted_by=excluded.granted_by;");
+
+ sqlite3_bind_int(s.get(), 1, assignmentId);
+ text(s.get(), 2, newDeadline);
+ sqlite3_bind_int(s.get(), 3, grantedBy);
  s.done();
 }
 

@@ -458,6 +458,79 @@ TEST_CASE("LMS repository integration tests", "[integration]") {
         ) == "2026-11-07 23:59:00");
     }
 
+    SECTION("Lecturer can grant a class-wide extension") {
+        LMSFixture test;
+
+        test.repo.grantClassExtension(
+            test.assignmentId,
+            "2026-11-05 23:59:00",
+            test.lecturerId
+        );
+
+        REQUIRE(test.queryInt(
+            "SELECT COUNT(*) FROM ClassExtension;"
+        ) == 1);
+
+        REQUIRE(test.queryText(
+            "SELECT new_deadline FROM ClassExtension;"
+        ) == "2026-11-05 23:59:00");
+    }
+
+    SECTION("A new class-wide extension updates the previous one") {
+        LMSFixture test;
+
+        test.repo.grantClassExtension(
+            test.assignmentId,
+            "2026-11-05 23:59:00",
+            test.lecturerId
+        );
+
+        test.repo.grantClassExtension(
+            test.assignmentId,
+            "2026-11-07 23:59:00",
+            test.lecturerId
+        );
+
+        REQUIRE(test.queryInt(
+            "SELECT COUNT(*) FROM ClassExtension;"
+        ) == 1);
+
+        REQUIRE(test.queryText(
+            "SELECT new_deadline FROM ClassExtension;"
+        ) == "2026-11-07 23:59:00");
+    }
+
+    SECTION("Student assignment list displays the effective class deadline") {
+        LMSFixture test;
+
+        test.repo.grantClassExtension(
+            test.assignmentId,
+            "2026-11-05 23:59:00",
+            test.lecturerId
+        );
+
+        auto assignments = test.repo.assignmentsForStudent(test.studentId);
+
+        REQUIRE(assignments.size() == 1);
+        REQUIRE(assignments[0].deadline == "2026-11-01 23:59:00");
+        REQUIRE(assignments[0].effectiveDeadline == "2026-11-05 23:59:00");
+    }
+SECTION("A HoD cannot grant a class-wide extension") {
+        LMSFixture test;
+
+        REQUIRE_THROWS(
+            test.repo.grantClassExtension(
+                test.assignmentId,
+                "2026-11-05 23:59:00",
+                test.hodId
+            )
+        );
+
+        REQUIRE(test.queryInt(
+            "SELECT COUNT(*) FROM ClassExtension;"
+        ) == 0);
+    }
+
     SECTION("Users can be retrieved") {
         LMSFixture test;
 
