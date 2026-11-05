@@ -32,9 +32,13 @@ Test command:
 | Late penalty rules | Passed |
 
 Total tests: 6
+
 Passed: 6
+
 Failed: 0
+
 Success rate: 100%
+
 Total execution time: 0.69 seconds.
 
 ## 3. Static Analysis
